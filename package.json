@@ -1,0 +1,25 @@
+{
+  "name": "fraud-detection-system",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xAyushx/fraud-detection-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/xAyushx/fraud-detection-system/issues"
+  },
+  "homepage": "https://github.com/xAyushx/fraud-detection-system#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
