@@ -1,7 +1,6 @@
 // scripts/generator.js
 
 const ACCOUNTS = Array.from({ length: 23 }, (_, i) => `account${String(i+1).padStart(3, '0')}`);
-
 const CITY_DATA = {
     Karnal:      { lat: 29.6857, lon: 76.9905 },
     Mumbai:      { lat: 19.0760, lon: 72.8777 },
@@ -20,7 +19,7 @@ const MERCHANTS = ['Apple','Samsung','Oyo','Amazon', 'Zomato', 'Uber', 'Flipkart
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randomAmt = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(3));
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const generateTransId = () => `trans_id_${Date.now().toString(23)}${Math.random().toString(23).slice(2, 8)}`;
+const generateTransId = () => `trans_id_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
 async function sendTrans(trans) {
     try {
@@ -31,17 +30,17 @@ async function sendTrans(trans) {
         });
         process.stdout.write('.');
     } catch (error) {
-        console.log('\n[ERROR] Server not running. Waiting for Step 2 Backend...');
+        console.log('\n[ERROR] Server not running.');
         process.exit(1);
     }
 }
 
 async function injectVelocityBurst() {
     const victim = pickRandom(ACCOUNTS);
-    const fixedcity = pickRandom(Object.keys(CITY_DATA)); 
+    const fixedcity = pickRandom(Object.keys(CITY_DATA));
     console.log(`\n INJECTING: Velocity Burst on ${victim}`);
     for (let i = 0; i < 9; i++) {
-        await sendTrans({ 
+        await sendTrans({
             txId: generateTransId(),
             accountId: victim,
             amount: randomAmt(500, 2000),
@@ -53,7 +52,7 @@ async function injectVelocityBurst() {
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; 
+    const R = 6371;
     const toRad = (deg) => deg * (Math.PI / 180);
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
@@ -72,7 +71,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 function getImpossibleCityPair(minDistance = 4000) {
     const cities = Object.keys(CITY_DATA);
     while (true) {
-        const cityA = pickRandom(cities); 
+        const cityA = pickRandom(cities);
         const cityB = pickRandom(cities);
         if (cityA === cityB) continue;
 
@@ -92,7 +91,7 @@ async function injectImpossibleTravel() {
 
     console.log(`\n  INJECTING: Impossible Travel on ${victim} (${cityA} → ${cityB}, ${distance} KM)`);
 
-    await sendTrans({ 
+    await sendTrans({
         txId: generateTransId(),
         accountId: victim,
         amount: randomAmt(1000, 5000),
@@ -118,9 +117,8 @@ function pickDistinctAccounts(arr, count) {
 }
 
 async function injectLaunderingCycle() {
-    // 1. Dynamically pick a random cycle length 
-    const cycleLength = Math.floor(Math.random() * 19) + 3; 
-    
+    const cycleLength = Math.floor(Math.random() * 19) + 3;
+
     const chain = pickDistinctAccounts(ACCOUNTS, cycleLength);
     const cities = Object.keys(CITY_DATA);
 
@@ -131,11 +129,9 @@ async function injectLaunderingCycle() {
 
     for (let i = 0; i < chain.length; i++) {
         const fromAcc = chain[i];
-        
         const toAcc = (i === chain.length - 1) ? chain[0] : chain[i + 1];
-      
         const currentAmount = parseFloat((baseAmount - (i * randomAmt(100, 300))).toFixed(3));
-        
+
         await sendTrans({
             txId: generateTransId(),
             accountId: fromAcc,
@@ -145,27 +141,26 @@ async function injectLaunderingCycle() {
             timestamp: Date.now()
         });
 
-        await sleep(100); 
+        await sleep(100);
     }
 }
 
 async function main() {
     console.log("Starting Txns gen:");
     let ctr = 0;
-    
+
     setInterval(async () => {
         ctr++;
         if (ctr % 30 === 10) {
             await injectVelocityBurst();
-        } 
+        }
         else if (ctr % 60 === 25) {
             await injectImpossibleTravel();
-            
         }
-        else if (ctr % 40 === 10) {  
+        else if (ctr % 40 === 10) {
             await injectLaunderingCycle();
         }
-         else {
+        else {
             const city = pickRandom(Object.keys(CITY_DATA));
             await sendTrans({
                 txId: generateTransId(),
@@ -178,5 +173,4 @@ async function main() {
         }
     }, 200);
 }
-
 main();
