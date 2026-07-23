@@ -88,7 +88,7 @@ Fraud Engine running on port 3000
 ```
 If Mongo isn't reachable, the second line still prints — the server starts and serves requests regardless, it just won't persist alerts until the DB comes back. This is intentional (see [Design notes](#design-notes)).
 
-Open the dashboard at **http://localhost:3000/dashboard.html**.
+Open the dashboard at **http://localhost:3000/dashboard.html**. (OR just rename dashboard to public and use **http://localhost:3000**)
 
 Generate live traffic in a second terminal:
 ```bash
