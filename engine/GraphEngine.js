@@ -1,73 +1,85 @@
-class GraphEngine {
-    constructor() {
-      //Map<accountId, Set<recipientId>>
-        this.adjList = new Map();
-        
-        // Track when transfers happen to clear them out later: Map<"from->to", timestamp>
-        this.edgeTimestamps = new Map();
-        
-     
-        this.TTL_MS = 30000;
-    }
+import { FastQueue } from './FastQueue.js';
 
+class GraphEngine {
+    constructor({ ttlMs = 30000, maxSearchDepth = 50 } = {}) {
+        this.adjList = new Map();
+        this.edgeTimestamps = new Map();
+        this.edgeInsertionOrder = new FastQueue();
+
+        this.TTL_MS = ttlMs;
+        this.MAX_SEARCH_DEPTH = maxSearchDepth;
+    }
     processTransaction(from, to, timestamp) {
         if (!to) return false;
 
         this.cleanupStaleEdges(timestamp);
 
-      
+        const wouldCreateCycle = this.canReach(to, from, this.MAX_SEARCH_DEPTH);
+
+        if (wouldCreateCycle) {
+            return true;
+        }
+
         if (!this.adjList.has(from)) {
             this.adjList.set(from, new Set());
         }
         this.adjList.get(from).add(to);
-    
-        this.edgeTimestamps.set(`${from}->${to}`, timestamp);
 
-        return this.hasCycle(from);
-    }
+        const edgeKey = `${from}->${to}`;
+        this.edgeTimestamps.set(edgeKey, timestamp);
+        this.edgeInsertionOrder.enqueue({ edgeKey, timestamp });
 
-    hasCycle(startNode) {
-        const visited = new Set();
-        const recStack = new Set(); 
-        return this.dfs(startNode, visited, recStack);
-    }
-
-    dfs(node, visited, recStack) {
-        if (recStack.has(node)) return true;
-        if (visited.has(node)) return false;
-
-        visited.add(node);
-        recStack.add(node);
-
-        const neighbors = this.adjList.get(node);
-        if (neighbors) {
-            for (const neighbor of neighbors) {
-                if (this.dfs(neighbor, visited, recStack)) {
-                    return true;
-                }
-            }
-        }
-
-        recStack.delete(node); 
         return false;
     }
 
+    canReach(startNode, target, maxDepth) {
+        if (startNode === target) return true;
+
+        const visited = new Set([startNode]);
+        const stack = [[startNode, 0]];
+
+        while (stack.length > 0) {
+            const [node, depth] = stack.pop();
+
+            if (depth >= maxDepth) continue;
+
+            const neighbors = this.adjList.get(node);
+            if (!neighbors) continue;
+
+            for (const neighbor of neighbors) {
+                if (neighbor === target) return true;
+                if (!visited.has(neighbor)) {
+                    visited.add(neighbor);
+                    stack.push([neighbor, depth + 1]);
+                }
+            }
+        }
+
+        return false;
+    }
     cleanupStaleEdges(currentTimestamp) {
         const cutoff = currentTimestamp - this.TTL_MS;
 
-        for (const [edgeKey, timestamp] of this.edgeTimestamps.entries()) {
-            if (timestamp < cutoff) {
-                const [from, to] = edgeKey.split('->');
-                
-                if (this.adjList.has(from)) {
-                    this.adjList.get(from).delete(to);
-                    if (this.adjList.get(from).size === 0) {
-                        this.adjList.delete(from);
-                    }
+        while (this.edgeInsertionOrder.size > 0) {
+            const oldest = this.edgeInsertionOrder.peekFront();
+
+            if (oldest.timestamp >= cutoff) break;
+
+            this.edgeInsertionOrder.dequeue();
+
+            const currentTsForKey = this.edgeTimestamps.get(oldest.edgeKey);
+            if (currentTsForKey !== oldest.timestamp) continue;
+
+            const [from, to] = oldest.edgeKey.split('->');
+            if (this.adjList.has(from)) {
+                this.adjList.get(from).delete(to);
+                if (this.adjList.get(from).size === 0) {
+                    this.adjList.delete(from);
                 }
-                this.edgeTimestamps.delete(edgeKey);
             }
+            this.edgeTimestamps.delete(oldest.edgeKey);
         }
     }
 }
+
 export { GraphEngine };

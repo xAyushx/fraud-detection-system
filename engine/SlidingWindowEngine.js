@@ -1,5 +1,3 @@
-// engine/SlidingWindowEngine.js
-import { FastQueue } from './FastQueue.js';
 const CITY_DATA = {
     Karnal:      { lat: 29.6857, lon: 76.9905 },
     Mumbai:      { lat: 19.0760, lon: 72.8777 },
@@ -15,20 +13,17 @@ const CITY_DATA = {
 
 class SlidingWindowEngine {
     constructor() {
-        
-        this.WINDOW_MS = 10000; 
-        
+        this.TRAVEL_WINDOW_MS = 6 * 60 * 60 * 1000;
+        this.VELOCITY_WINDOW_MS = 10000;
         this.VELOCITY_THRESHOLD = 4;
     }
 
     calculateSpeed(cityA, cityB, timeDiffMs) {
         if (cityA === cityB || timeDiffMs <= 0) return 0;
-        
         const locA = CITY_DATA[cityA];
         const locB = CITY_DATA[cityB];
         if (!locA || !locB) return 0;
 
-        // Haversine formula calculation
         const R = 6371;
         const toRad = (deg) => deg * (Math.PI / 180);
         const dLat = toRad(locB.lat - locA.lat);
@@ -39,38 +34,48 @@ class SlidingWindowEngine {
                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distanceKm = R * c;
-
         const timeHours = timeDiffMs / (1000 * 60 * 60);
-        return distanceKm / timeHours; // Speed in KM per Hour
+        return distanceKm / timeHours;
     }
 
     analyze(tx, historyQueue) {
         const flags = [];
 
-       
-        while (historyQueue.size > 0 && (tx.timestamp - historyQueue.peekFront().timestamp) > this.WINDOW_MS) {
+        while (historyQueue.size > 0 && (tx.timestamp - historyQueue.peekFront().timestamp) > this.TRAVEL_WINDOW_MS) {
             historyQueue.dequeue();
         }
 
-        const lastTx = historyQueue.peekBack();
+        const history = historyQueue.toArray();
+        let lastTx = null;
+        for (let i = history.length - 1; i >= 0; i--) {
+            if (history[i].timestamp < tx.timestamp) {
+                lastTx = history[i];
+                break;
+            }
+        }
+
         if (lastTx) {
             const timeDiffMs = tx.timestamp - lastTx.timestamp;
             const speedKmh = this.calculateSpeed(lastTx.city, tx.city, timeDiffMs);
-
             if (speedKmh > 1200) {
                 flags.push(`IMPOSSIBLE_TRAVEL (${Math.round(speedKmh)} KM/H)`);
             }
         }
-
         historyQueue.enqueue(tx);
 
-     
-        if (historyQueue.size > this.VELOCITY_THRESHOLD) {
-            flags.push(`HIGH_VELOCITY (${historyQueue.size} tx/10s)`);
+        let velocityCount = 0;
+        for (const historicalTx of historyQueue) {
+            if ((tx.timestamp - historicalTx.timestamp) <= this.VELOCITY_WINDOW_MS) {
+                velocityCount++;
+            }
+        }
+
+        if (velocityCount > this.VELOCITY_THRESHOLD) {
+            flags.push(`HIGH_VELOCITY (${velocityCount} tx/10s)`);
         }
 
         return flags;
     }
 }
 
-export { SlidingWindowEngine };
+export { SlidingWindowEngine, CITY_DATA };
