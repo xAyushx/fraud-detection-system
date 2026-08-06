@@ -2,11 +2,17 @@ import express from "express";
 import { FastQueue } from "./engine/FastQueue.js";
 import { SlidingWindowEngine } from "./engine/SlidingWindowEngine.js";
 import { GraphEngine } from "./engine/GraphEngine.js";
+import { connectDB } from "./db.js";
+import { Alert } from "./Alert.js";
+
 
 const app = express();
 app.use(express.json());
 app.use(express.static("public"));
-
+app.use((req, res, next) => {
+       res.setHeader("Access-Control-Allow-Origin", "*");
+       next();
+   });
 const dashboardClients = [];
 
 app.get("/stream", (req, res) => {
@@ -16,7 +22,7 @@ app.get("/stream", (req, res) => {
     res.flushHeaders();
 
     for (const alert of alertLog.slice(0, 20).reverse()) {
-        res.write("data: " + JSON.stringify({ type: "HISTORY", ...alert }) + "\n\n");
+       res.write("data: " + JSON.stringify({ ...alert, type: "HISTORY" }) + "\n\n");
     }
 
     dashboardClients.push(res);
@@ -88,6 +94,7 @@ app.post("/transaction", (req, res) => {
     let verdict = "ALLOW";
     if      (totalScore >= 100) verdict = "BLOCK";
     else if (totalScore >= 50)  verdict = "REVIEW";
+    res.status(200).json({ verdict, score: totalScore, flags: violations });
 
     if (verdict !== "ALLOW") {
         engineStats.totalFlagged++;
@@ -104,7 +111,7 @@ app.post("/transaction", (req, res) => {
             verdict,
             score:      totalScore,
             flags:      violations,
-            timestamp:  tx.timestamp,
+            txTimestamp: tx.timestamp,
             detectedAt: Date.now()
         };
 
@@ -118,9 +125,11 @@ app.post("/transaction", (req, res) => {
         } else {
             console.log("REVIEW | score:" + totalScore + " | " + tx.accountId + " | [" + violations.join(", ") + "]");
         }
-    }
 
-    res.status(200).json({ verdict, score: totalScore, flags: violations });
+        Alert.create(alert).catch((err) => {
+            console.error("[Alert] failed to persist (non-fatal):", err.message);
+        });
+    }
 });
 
 app.get("/alerts", (req, res) => {
@@ -129,6 +138,26 @@ app.get("/alerts", (req, res) => {
     let data      = alertLog.slice(0, limit);
     if (verdict) data = data.filter(a => a.verdict === verdict);
     res.json({ count: data.length, alerts: data });
+});
+
+app.get("/alerts/history", async (req, res) => {
+    const limit     = Math.min(parseInt(req.query.limit) || 50, 200);
+    const accountId = req.query.accountId;
+    const verdict    = req.query.verdict?.toUpperCase();
+
+    const query = {};
+    if (accountId) query.accountId = accountId;
+    if (verdict) query.verdict = verdict;
+
+    try {
+        const results = await Alert
+            .find(query)
+            .sort({ timestamp: -1 })
+            .limit(limit);
+        res.json({ count: results.length, alerts: results });
+    } catch (err) {
+        res.status(503).json({ error: "database unavailable", detail: err.message });
+    }
 });
 
 app.get("/stats", (req, res) => {
@@ -147,6 +176,12 @@ app.get("/stats", (req, res) => {
 app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log("Fraud Engine running on port " + PORT);
-});
+
+async function main() {
+    await connectDB(); // awaited once at startup only, never in the request path
+    app.listen(PORT, () => {
+        console.log("Fraud Engine running on port " + PORT);
+    });
+}
+
+main();
