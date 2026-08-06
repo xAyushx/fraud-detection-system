@@ -88,7 +88,7 @@ Fraud Engine running on port 3000
 ```
 If Mongo isn't reachable, the second line still prints — the server starts and serves requests regardless, it just won't persist alerts until the DB comes back. This is intentional (see [Design notes](#design-notes)).
 
-Open the dashboard at **http://localhost:3000/dashboard.html**. (OR just rename dashboard to public and use **http://localhost:3000**)
+Open the dashboard at **http://localhost:3000/dashboard.html**. (OR just rename dashboard to index and use **http://localhost:3000**)
 
 Generate live traffic in a second terminal:
 ```bash
@@ -152,10 +152,6 @@ The detection logic itself is comfortably sub-millisecond. The full HTTP request
 
 ## Known limitations
 
-- **`FastQueue` is a queue, not a deque** — it supports `enqueue`/`dequeue`/`peekFront`/`peekBack` but has no `enqueueFront`/`dequeueBack`. Worth being precise about this if it comes up.
-- **No automated test suite.** Correctness has been verified by manual/scripted runs against a live server, not by a CI-runnable test suite.
-- **Minimal input validation** — `/transaction` checks that required fields are present but doesn't validate types or sane ranges (e.g. a negative `amount` would be accepted).
-- **No authentication** on any endpoint.
 - **`accountHistories` (in `server.js`) never evicts account keys**, only trims each account's queue contents by time window. With a small fixed pool of accounts this is invisible; with unbounded account creation over a long-running process it would grow without bound.
 - **The MongoDB alert collection has no retention policy** — every flagged alert is kept forever. Appropriate for an audit trail, but worth knowing if running the traffic generator unattended for long periods.
 
