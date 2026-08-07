@@ -20,6 +20,10 @@
   },
   "homepage": "https://github.com/xAyushx/fraud-detection-system#readme",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mongoose": "^9.8.0"
+  },
+  "devDependencies": {
+    "autocannon": "^8.0.0"
   }
 }
