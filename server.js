@@ -152,7 +152,7 @@ app.get("/alerts/history", async (req, res) => {
     try {
         const results = await Alert
             .find(query)
-            .sort({ timestamp: -1 })
+            .sort({ txTimestamp: -1 })
             .limit(limit);
         res.json({ count: results.length, alerts: results });
     } catch (err) {
