@@ -35,7 +35,7 @@ generator.js  --POST /transaction-->  Express server (server.js)
 - **Impossible-travel detection** — Haversine distance between an account's last known city and its current one, divided by elapsed time; flags if implied speed exceeds 1200 km/h.
 - **Velocity-burst detection** — flags an account with more than 4 transactions in a rolling 10-second window.
 - **Money-laundering cycle detection** — models transactions with a `toAccountId` as directed edges and runs a depth-first reachability check (explicit stack, not BFS) before adding a new edge; if adding it would close a cycle (e.g. A→B→C→A), the edge is rejected and the transaction is flagged instead.
-- **Live dashboard** — `public/dashboard.html`, a single self-contained HTML/JS page that connects to `/stream` via `EventSource` and renders flagged transactions in real time, with a distinct visual treatment for replayed history vs. live pushes.
+- **Live dashboard** — `public/index.html`, a single self-contained HTML/JS page that connects to `/stream` via `EventSource` and renders flagged transactions in real time, with a distinct visual treatment for replayed history vs. live pushes.
 - **Durable audit trail** — every flagged transaction is persisted to MongoDB via Mongoose, asynchronously, after the response has already been sent. A dead or unreachable database degrades gracefully: the server logs the failure and keeps serving requests, it never crashes or blocks on it.
 
 ## Tech stack
@@ -49,8 +49,7 @@ fraud-engine/
 ├── package.json
 ├── server.js                    # Express app entry point; the hot path lives here
 ├── db.js                        # Mongo connection helper; never crashes the server if DB is unreachable
-├── models/
-│   └── Alert.js                 # Mongoose schema for the persisted audit trail
+├── Alert.js                # Mongoose schema for the persisted audit trail
 ├── engine/
 │   ├── GraphEngine.js            # Directed-graph cycle detection / laundering-loop prevention
 │   ├── FastQueue.js              # Custom O(1) queue (object-pointer based)
