@@ -32,7 +32,7 @@ generator.js  --POST /transaction-->  Express server (server.js)
 
 - **In-memory detection, zero DB calls on the hot path.** `SlidingWindowEngine` and `GraphEngine` run pure, synchronous, in-process computation. Measured engine-only latency: **p50 0.088ms, p99 0.276ms** over 50,000 simulated transactions (see [Performance](#performance)).
 - **Custom `FastQueue`** — an object-index-pointer queue (not `array.shift()`) used both for per-account transaction history and for the graph engine's edge-eviction order, giving O(1) enqueue/dequeue instead of the O(n) cost of shifting a real array.
-- **Impossible-travel detection** — Haversine distance between an account's last known city and its current one, divided by elapsed time; flags if implied speed exceeds 1200 km/h.
+- **Impossible-travel detection** — Haversine distance between an account's last known city and its current one, divided by elapsed time; flags if implied speed exceeds 800+ km/h plus some airport overhead.
 - **Velocity-burst detection** — flags an account with more than 4 transactions in a rolling 10-second window.
 - **Money-laundering cycle detection** — models transactions with a `toAccountId` as directed edges and runs a depth-first reachability check (explicit stack, not BFS) before adding a new edge; if adding it would close a cycle (e.g. A→B→C→A), the edge is rejected and the transaction is flagged instead.
 - **Live dashboard** — `public/index.html`, a single self-contained HTML/JS page that connects to `/stream` via `EventSource` and renders flagged transactions in real time, with a distinct visual treatment for replayed history vs. live pushes.
@@ -110,7 +110,7 @@ node scripts/generator.js
 | Rule | Score |
 |---|---|
 | `HIGH_VELOCITY` (>4 tx in 10s) | +50 |
-| `IMPOSSIBLE_TRAVEL` (>1200 km/h implied) | +60 |
+| `IMPOSSIBLE_TRAVEL` (>800 km/h implied) | +60 |
 | `LAUNDERING_CYCLE` (would close a directed cycle) | +100 |
 
 `score ≥ 100` → `BLOCK`, `score ≥ 50` → `REVIEW`, otherwise `ALLOW`. Only non-`ALLOW` verdicts are logged, broadcast over SSE, and persisted.
